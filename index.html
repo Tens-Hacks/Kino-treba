@@ -9,29 +9,24 @@
         body { font-family: -apple-system, sans-serif; background: #0f0f0f; color: white; text-align: center; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
         video { width: 95%; max-width: 1100px; border-radius: 12px; background: black; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 20px; }
         .card { background: #1a1a1a; padding: 25px; border-radius: 15px; width: 90%; max-width: 400px; border: 1px solid #333; }
-        button { background: #007aff; color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: 600; cursor: pointer; border-radius: 8px; margin: 10px 0; width: 100%; transition: 0.2s; }
-        button:hover { background: #0056b3; }
-        input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333; background: #2a2a2a; color: white; box-sizing: border-box; margin-bottom: 10px; text-align: center; }
-        #my-id { color: #007aff; font-weight: bold; font-size: 1.2em; letter-spacing: 1px; }
-        .status { color: #888; font-size: 0.9em; margin-top: 15px; }
+        button { background: #007aff; color: white; border: none; padding: 14px; font-size: 16px; font-weight: 600; cursor: pointer; border-radius: 8px; margin: 10px 0; width: 100%; }
+        input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333; background: #2a2a2a; color: white; box-sizing: border-box; text-align: center; }
+        #my-id { color: #007aff; font-weight: bold; font-size: 1.1em; word-break: break-all; margin: 10px 0; }
+        .status { color: #ffcc00; font-size: 0.9em; margin-top: 15px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <video id="remoteVideo" autoplay playsinline controls></video>
+    <video id="remoteVideo" autoplay playsinline controls muted></video>
     
     <div class="card">
-        <h2 style="margin-top:0">🎬 Moje Kino</h2>
+        <h2 style="margin:0">🎬 Moje Kino V3</h2>
+        <p style="color: #888; font-size: 0.8em;">ID pro partnera:</p>
+        <div id="my-id">Načítám ID...</div>
         
-        <p style="font-size: 0.9em; color: #aaa;">Tvoje ID (pošli přítelkyni):</p>
-        <div id="my-id">Generuji ID...</div>
-        
-        <button onclick="startStreaming()" style="background: #28a745; margin-top: 20px;">1. Sdílet moji obrazovku</button>
-        
-        <div style="margin: 20px 0; border-top: 1px solid #333;"></div>
-        
-        <input type="text" id="peer-id-input" placeholder="Sem vlož ID od partnera">
-        <button onclick="connectToPeer()">2. Připojit se a koukat</button>
+        <button onclick="startStreaming()" style="background: #28a745;">1. SDÍLET OBRAZOVKU (PC)</button>
+        <input type="text" id="peer-id-input" placeholder="Vlož ID partnera">
+        <button onclick="connectToPeer()">2. PŘIPOJIT SE (iPad/Mobil)</button>
         
         <div id="status" class="status">Status: Připraveno</div>
     </div>
@@ -41,64 +36,55 @@
         const statusText = document.getElementById('status');
         const myIdDisplay = document.getElementById('my-id');
         
-        // PeerJS nastavení pro nejlepší stabilitu
         const peer = new Peer({
-            debug: 2,
             config: {'iceServers': [
                 { url: 'stun:stun.l.google.com:19302' },
                 { url: 'stun:stun1.l.google.com:19302' }
             ]}
         });
 
-        peer.on('open', (id) => {
-            myIdDisplay.innerText = id;
-        });
+        peer.on('open', id => myIdDisplay.innerText = id);
 
-        // HOST (Ty na PC)
+        // HOST (PC)
         async function startStreaming() {
             try {
                 const stream = await navigator.mediaDevices.getDisplayMedia({
-                    video: { 
-                        width: { ideal: 1920 }, 
-                        height: { ideal: 1080 }, 
-                        frameRate: { ideal: 60 } 
-                    },
-                    audio: {
-                        echoCancellation: false,
-                        noiseSuppression: false,
-                        autoGainControl: false
-                    }
+                    video: { width: 1920, height: 1080, frameRate: 60 },
+                    audio: true
                 });
-                
                 videoElement.srcObject = stream;
-                statusText.innerText = "Vysíláš! Čekej na připojení...";
+                videoElement.muted = true; // Aby sis neslyšel ozvěnu na PC
+                statusText.innerText = "VYSIÍLÁŠ! Pošli ID partnerovi.";
 
-                peer.on('call', (call) => {
+                peer.on('call', call => {
+                    statusText.innerText = "Partner se připojuje...";
                     call.answer(stream);
-                    statusText.innerText = "Přítelkyně je online!";
                 });
             } catch (err) {
                 statusText.innerText = "Chyba: " + err.message;
             }
         }
 
-        // DIVÁK (Ona na iPadu)
+        // DIVÁK (iPhone/iPad)
         function connectToPeer() {
             const remoteId = document.getElementById('peer-id-input').value;
-            if (!remoteId) return alert("Musíš vložit ID!");
+            if(!remoteId) return alert("Chybí ID!");
             
-            statusText.innerText = "Připojování...";
+            statusText.innerText = "Navazuji spojení...";
             const call = peer.call(remoteId, null);
             
-            call.on('stream', (remoteStream) => {
+            call.on('stream', remoteStream => {
+                statusText.innerText = "STREAM PŘIJAT! Klepni na video.";
                 videoElement.srcObject = remoteStream;
-                videoElement.play(); // Důležité pro Safari na iPadu
-                statusText.innerText = "Sleduješ stream!";
+                videoElement.muted = false;
+                videoElement.play();
             });
 
-            call.on('error', (err) => {
-                statusText.innerText = "Chyba spojení: " + err;
-            });
+            setTimeout(() => {
+                if(statusText.innerText === "Navazuji spojení...") {
+                    statusText.innerText = "TIMEOUT: Zkus jinou síť (data).";
+                }
+            }, 15000);
         }
     </script>
 </body>
