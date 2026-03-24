@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎬 Naše Soukromé Kino V6</title>
+    <title>🎬 Kino V7 - Full HD</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; background: #0b0b0b; color: white; text-align: center; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
+        body { font-family: sans-serif; background: #0b0b0b; color: white; text-align: center; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
         video { width: 95%; max-width: 1100px; border-radius: 12px; background: black; box-shadow: 0 0 30px rgba(0,122,255,0.3); }
         .controls { background: #1a1a1a; padding: 25px; border-radius: 18px; margin-top: 20px; width: 90%; max-width: 400px; border: 1px solid #333; }
         button { background: #007aff; color: white; border: none; padding: 16px; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 12px; width: 100%; margin: 10px 0; }
-        #status { color: #ffcc00; margin-top: 10px; font-size: 0.9em; font-weight: bold; }
+        #status { color: #ffcc00; margin-top: 10px; font-size: 0.9em; font-weight: bold; padding: 10px; border: 1px dashed #444; }
     </style>
 </head>
 <body>
@@ -18,41 +18,38 @@
     <video id="remoteVideo" autoplay playsinline controls muted></video>
     
     <div class="controls">
-        <div id="hostSection">
-            <button onclick="startStreaming()" style="background: #28a745;">🚀 START (Klikni jen na PC)</button>
-        </div>
+        <button id="hostBtn" onclick="startStreaming()" style="background: #28a745;">🚀 ZAPNOUT STREAM (PC)</button>
+        <button id="clientBtn" onclick="autoConnect()" style="background: #5856d6; display:none;">🔄 PŘIPOJIT SE ZNOVU (iPad)</button>
         <div id="status">Připojuji k serveru...</div>
-        <p style="font-size: 0.8em; color: #555; margin-top: 15px;">Na iPadu/mobilu jen čekej, obraz naskočí sám.</p>
     </div>
 
     <script>
         const videoElement = document.getElementById('remoteVideo');
         const statusText = document.getElementById('status');
+        const ID_VYSILATEL = 'tens-hacker-kino'; // Změnil jsem ID pro čistý start
         
-        // Zde definujeme dvě různá ID, aby se nepletla
-        const ID_VYSILATEL = 'tens-hacker';
-        const ID_DIVAK = 'tens-hacker-divak';
-
-        // Detekce, jestli je to mobil/tablet nebo PC (velmi zjednodušeně)
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        
-        // Pokud je to mobil, přihlásí se jako divák, jinak jako vysílatel
-        const mojeID = isMobile ? ID_DIVAK : ID_VYSILATEL;
+        if(isMobile) {
+            document.getElementById('hostBtn').style.display = 'none';
+            document.getElementById('clientBtn').style.display = 'block';
+        }
 
-        const peer = new Peer(mojeID, {
-            config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]}
-        });
-
-        peer.on('open', (id) => {
-            if (id === ID_VYSILATEL) {
-                statusText.innerText = "Kino připraveno k vysílání.";
-            } else {
-                statusText.innerText = "Hledám vysílání...";
-                autoConnect();
+        const peer = new Peer(isMobile ? '' : ID_VYSILATEL, {
+            config: {
+                'iceServers': [
+                    { url: 'stun:stun.l.google.com:19302' },
+                    { url: 'stun:stun1.l.google.com:19302' },
+                    { url: 'stun:stun2.l.google.com:19302' }
+                ]
             }
         });
 
-        // 1. PRO PC (Vysílatel)
+        peer.on('open', (id) => {
+            statusText.innerText = isMobile ? "Připraveno. Klikni na 'PŘIPOJIT SE'." : "Vysílač připraven.";
+            if(isMobile) setTimeout(autoConnect, 1000);
+        });
+
+        // PRO PC
         async function startStreaming() {
             try {
                 const stream = await navigator.mediaDevices.getDisplayMedia({
@@ -60,45 +57,33 @@
                     audio: true
                 });
                 videoElement.srcObject = stream;
-                videoElement.muted = true;
-                statusText.innerText = "VYSÍLÁŠ!";
-
+                statusText.innerText = "VYSIÍLÁŠ!";
+                
                 peer.on('call', call => {
-                    statusText.innerText = "Divák se připojil!";
+                    statusText.innerText = "Divák připojen!";
                     call.answer(stream);
                 });
-            } catch (err) {
-                statusText.innerText = "Chyba: " + err.message;
-            }
+            } catch (err) { statusText.innerText = "Chyba: " + err.message; }
         }
 
-        // 2. PRO MOBIL (Divák)
+        // PRO IPAD/MOBIL
         function autoConnect() {
-            // Divák (mobil) volá Vysílateli (PC)
+            statusText.innerText = "Volám vysílač...";
             const call = peer.call(ID_VYSILATEL, null);
             
             call.on('stream', remoteStream => {
-                statusText.innerText = "SLEDUJEŠ! (Klepni pro zvuk)";
+                statusText.innerText = "STREAM BĚŽÍ! Klepni na video.";
                 videoElement.srcObject = remoteStream;
                 videoElement.muted = false;
-                videoElement.play().catch(() => {
-                    statusText.innerText = "Klepni na video pro zvuk!";
-                });
+                videoElement.play();
             });
 
-            // Pokud se nepovede, zkus to znovu za 5s
-            setTimeout(() => {
-                if (!videoElement.srcObject && isMobile) {
-                    autoConnect();
-                }
-            }, 5000);
+            call.on('error', (e) => { statusText.innerText = "Chyba: " + e; });
         }
 
-        peer.on('error', (err) => {
-            console.log("PeerJS chyba:", err.type);
-            if (err.type === 'unavailable-id') {
-                statusText.innerText = "Tohle ID už někdo používá.";
-            }
+        peer.on('error', err => {
+            if(err.type === 'peer-navigation-failed') statusText.innerText = "Chyba sítě. Zkus data.";
+            console.error(err);
         });
     </script>
 </body>
