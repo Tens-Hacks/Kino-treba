@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Kino 1080p</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: -apple-system, sans-serif; background: #0f0f0f; color: white; text-align: center; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
+        video { width: 95%; max-width: 1100px; border-radius: 12px; background: black; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 20px; }
+        .card { background: #1a1a1a; padding: 25px; border-radius: 15px; width: 90%; max-width: 400px; border: 1px solid #333; }
+        button { background: #007aff; color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: 600; cursor: pointer; border-radius: 8px; margin: 10px 0; width: 100%; transition: 0.2s; }
+        button:hover { background: #0056b3; }
+        input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333; background: #2a2a2a; color: white; box-sizing: border-box; margin-bottom: 10px; text-align: center; }
+        #my-id { color: #007aff; font-weight: bold; font-size: 1.2em; letter-spacing: 1px; }
+        .status { color: #888; font-size: 0.9em; margin-top: 15px; }
+    </style>
+</head>
+<body>
+
+    <video id="remoteVideo" autoplay playsinline controls></video>
+    
+    <div class="card">
+        <h2 style="margin-top:0">🎬 Moje Kino</h2>
+        
+        <p style="font-size: 0.9em; color: #aaa;">Tvoje ID (pošli přítelkyni):</p>
+        <div id="my-id">Generuji ID...</div>
+        
+        <button onclick="startStreaming()" style="background: #28a745; margin-top: 20px;">1. Sdílet moji obrazovku</button>
+        
+        <div style="margin: 20px 0; border-top: 1px solid #333;"></div>
+        
+        <input type="text" id="peer-id-input" placeholder="Sem vlož ID od partnera">
+        <button onclick="connectToPeer()">2. Připojit se a koukat</button>
+        
+        <div id="status" class="status">Status: Připraveno</div>
+    </div>
+
+    <script>
+        const videoElement = document.getElementById('remoteVideo');
+        const statusText = document.getElementById('status');
+        const myIdDisplay = document.getElementById('my-id');
+        
+        // PeerJS nastavení pro nejlepší stabilitu
+        const peer = new Peer({
+            debug: 2,
+            config: {'iceServers': [
+                { url: 'stun:stun.l.google.com:19302' },
+                { url: 'stun:stun1.l.google.com:19302' }
+            ]}
+        });
+
+        peer.on('open', (id) => {
+            myIdDisplay.innerText = id;
+        });
+
+        // HOST (Ty na PC)
+        async function startStreaming() {
+            try {
+                const stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { 
+                        width: { ideal: 1920 }, 
+                        height: { ideal: 1080 }, 
+                        frameRate: { ideal: 60 } 
+                    },
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false
+                    }
+                });
+                
+                videoElement.srcObject = stream;
+                statusText.innerText = "Vysíláš! Čekej na připojení...";
+
+                peer.on('call', (call) => {
+                    call.answer(stream);
+                    statusText.innerText = "Přítelkyně je online!";
+                });
+            } catch (err) {
+                statusText.innerText = "Chyba: " + err.message;
+            }
+        }
+
+        // DIVÁK (Ona na iPadu)
+        function connectToPeer() {
+            const remoteId = document.getElementById('peer-id-input').value;
+            if (!remoteId) return alert("Musíš vložit ID!");
+            
+            statusText.innerText = "Připojování...";
+            const call = peer.call(remoteId, null);
+            
+            call.on('stream', (remoteStream) => {
+                videoElement.srcObject = remoteStream;
+                videoElement.play(); // Důležité pro Safari na iPadu
+                statusText.innerText = "Sleduješ stream!";
+            });
+
+            call.on('error', (err) => {
+                statusText.innerText = "Chyba spojení: " + err;
+            });
+        }
+    </script>
+</body>
+</html>
