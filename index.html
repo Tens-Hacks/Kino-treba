@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stream Kino 1080p</title>
+    <title>Kino V4 - Krátké ID</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { font-family: -apple-system, sans-serif; background: #0f0f0f; color: white; text-align: center; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
         video { width: 95%; max-width: 1100px; border-radius: 12px; background: black; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 20px; }
         .card { background: #1a1a1a; padding: 25px; border-radius: 15px; width: 90%; max-width: 400px; border: 1px solid #333; }
         button { background: #007aff; color: white; border: none; padding: 14px; font-size: 16px; font-weight: 600; cursor: pointer; border-radius: 8px; margin: 10px 0; width: 100%; }
-        input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333; background: #2a2a2a; color: white; box-sizing: border-box; text-align: center; }
-        #my-id { color: #007aff; font-weight: bold; font-size: 1.1em; word-break: break-all; margin: 10px 0; }
-        .status { color: #ffcc00; font-size: 0.9em; margin-top: 15px; font-weight: bold; }
+        input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333; background: #2a2a2a; color: white; box-sizing: border-box; text-align: center; margin-bottom: 10px; }
+        #status { color: #ffcc00; font-size: 0.9em; margin-top: 15px; font-weight: bold; }
+        .setup-box { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #333; }
     </style>
 </head>
 <body>
@@ -20,30 +20,58 @@
     <video id="remoteVideo" autoplay playsinline controls muted></video>
     
     <div class="card">
-        <h2 style="margin:0">🎬 Moje Kino V3</h2>
-        <p style="color: #888; font-size: 0.8em;">ID pro Terezku:</p>
-        <div id="my-id">Načítám ID...</div>
+        <h2 style="margin:0 0 20px 0">🎬 Zkouška prdů</h2>
         
-        <button onclick="startStreaming()" style="background: #28a745;">1. SDÍLET OBRAZOVKU (PC)</button>
-        <input type="text" id="peer-id-input" placeholder="Vlož ID partnera">
-        <button onclick="connectToPeer()">2. PŘIPOJIT SE (iPad/Mobil)</button>
+        <div class="setup-box">
+            <p style="color: #888; font-size: 0.8em; margin-bottom: 5px;">Zadej název tvého kina (např. kino123):</p>
+            <input type="text" id="custom-id" placeholder="Tvoje jméno nebo kód">
+            <button onclick="initPeer()" id="init-btn" style="background: #5856d6;">Aktivovat název kina</button>
+        </div>
+
+        <button onclick="startStreaming()" id="start-btn" style="background: #28a745; display:none;">1. SDÍLET OBRAZOVKU (PC)</button>
         
-        <div id="status" class="status">Status: Připraveno</div>
+        <div id="join-section" style="display:none;">
+            <p style="color: #888; font-size: 0.8em; margin: 20px 0 5px 0;">Partner zadá tvůj název a klikne:</p>
+            <button onclick="connectToPeer()">2. PŘIPOJIT SE (iPad/Mobil)</button>
+        </div>
+        
+        <div id="status" class="status">Status: Nejdřív aktivuj název.</div>
     </div>
 
     <script>
         const videoElement = document.getElementById('remoteVideo');
         const statusText = document.getElementById('status');
-        const myIdDisplay = document.getElementById('my-id');
-        
-        const peer = new Peer({
-            config: {'iceServers': [
-                { url: 'stun:stun.l.google.com:19302' },
-                { url: 'stun:stun1.l.google.com:19302' }
-            ]}
-        });
+        let peer;
 
-        peer.on('open', id => myIdDisplay.innerText = id);
+        // Funkce pro vytvoření spojení s tvým vlastním ID
+        function initPeer() {
+            const customId = document.getElementById('custom-id').value.trim();
+            if (!customId) return alert("Zadej nějaký název!");
+
+            // Vytvoříme Peer s tvým názvem
+            peer = new Peer(customId, {
+                config: {'iceServers': [
+                    { url: 'stun:stun.l.google.com:19302' },
+                    { url: 'stun:stun1.l.google.com:19302' }
+                ]}
+            });
+
+            peer.on('open', (id) => {
+                statusText.innerText = "Kino '" + id + "' je připraveno!";
+                document.getElementById('init-btn').style.background = "#333";
+                document.getElementById('init-btn').innerText = "Název aktivní: " + id;
+                document.getElementById('start-btn').style.display = "block";
+                document.getElementById('join-section').style.display = "block";
+            });
+
+            peer.on('error', (err) => {
+                if (err.type === 'unavailable-id') {
+                    alert("Tenhle název už někdo používá, zkus jiný!");
+                } else {
+                    statusText.innerText = "Chyba: " + err.type;
+                }
+            });
+        }
 
         // HOST (PC)
         async function startStreaming() {
@@ -53,11 +81,11 @@
                     audio: true
                 });
                 videoElement.srcObject = stream;
-                videoElement.muted = true; // Aby sis neslyšel ozvěnu na PC
-                statusText.innerText = "VYSIÍLÁŠ! Pošli ID partnerovi.";
+                videoElement.muted = true;
+                statusText.innerText = "VYSIÍLÁŠ! Partner se může připojit.";
 
                 peer.on('call', call => {
-                    statusText.innerText = "Partner se připojuje...";
+                    statusText.innerText = "Partner se připojil!";
                     call.answer(stream);
                 });
             } catch (err) {
@@ -67,10 +95,10 @@
 
         // DIVÁK (iPhone/iPad)
         function connectToPeer() {
-            const remoteId = document.getElementById('peer-id-input').value;
-            if(!remoteId) return alert("Chybí ID!");
+            const remoteId = document.getElementById('custom-id').value.trim();
+            if(!remoteId) return alert("Zadej název kina partnera!");
             
-            statusText.innerText = "Navazuji spojení...";
+            statusText.innerText = "Hledám kino: " + remoteId;
             const call = peer.call(remoteId, null);
             
             call.on('stream', remoteStream => {
@@ -79,12 +107,6 @@
                 videoElement.muted = false;
                 videoElement.play();
             });
-
-            setTimeout(() => {
-                if(statusText.innerText === "Navazuji spojení...") {
-                    statusText.innerText = "TIMEOUT: Zkus jinou síť (data).";
-                }
-            }, 15000);
         }
     </script>
 </body>
