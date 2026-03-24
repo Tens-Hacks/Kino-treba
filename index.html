@@ -3,88 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎬 Kino V7 - Full HD</title>
+    <title>🎬 Soukromé Kino V8</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { font-family: sans-serif; background: #0b0b0b; color: white; text-align: center; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
-        video { width: 95%; max-width: 1100px; border-radius: 12px; background: black; box-shadow: 0 0 30px rgba(0,122,255,0.3); }
-        .controls { background: #1a1a1a; padding: 25px; border-radius: 18px; margin-top: 20px; width: 90%; max-width: 400px; border: 1px solid #333; }
-        button { background: #007aff; color: white; border: none; padding: 16px; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 12px; width: 100%; margin: 10px 0; }
-        #status { color: #ffcc00; margin-top: 10px; font-size: 0.9em; font-weight: bold; padding: 10px; border: 1px dashed #444; }
+        body { font-family: sans-serif; background: #000; color: white; text-align: center; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
+        video { width: 100%; height: 100vh; background: #000; object-fit: contain; }
+        .ui { position: absolute; z-index: 10; background: rgba(20,20,20,0.8); padding: 20px; border-radius: 15px; width: 300px; border: 1px solid #444; }
+        button { background: #007aff; color: white; border: none; padding: 15px; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 10px; width: 100%; margin: 10px 0; }
+        #status { color: #ffcc00; font-size: 0.9em; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
     <video id="remoteVideo" autoplay playsinline controls muted></video>
     
-    <div class="controls">
-        <button id="hostBtn" onclick="startStreaming()" style="background: #28a745;">🚀 ZAPNOUT STREAM (PC)</button>
-        <button id="clientBtn" onclick="autoConnect()" style="background: #5856d6; display:none;">🔄 PŘIPOJIT SE ZNOVU (iPad)</button>
-        <div id="status">Připojuji k serveru...</div>
+    <div class="ui" id="controlsUI">
+        <div id="status">Připojování...</div>
+        <button id="hostBtn" onclick="startStreaming()" style="background: #28a745;">🚀 START STREAM (PC)</button>
+        <button id="unlockBtn" onclick="unlockVideo()" style="display:none; background: #ff9500;">🔊 ODBLOKOVAT VIDEO/ZVUK</button>
+        <button onclick="location.reload()">🔄 REFRESH</button>
     </div>
 
     <script>
-        const videoElement = document.getElementById('remoteVideo');
-        const statusText = document.getElementById('status');
-        const ID_VYSILATEL = 'tens-hacker-kino'; // Změnil jsem ID pro čistý start
-        
+        const video = document.getElementById('remoteVideo');
+        const status = document.getElementById('status');
+        const ID_VYSILATEL = 'tens-hacker-kino';
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        if(isMobile) {
-            document.getElementById('hostBtn').style.display = 'none';
-            document.getElementById('clientBtn').style.display = 'block';
-        }
+
+        if(isMobile) document.getElementById('hostBtn').style.display = 'none';
 
         const peer = new Peer(isMobile ? '' : ID_VYSILATEL, {
-            config: {
-                'iceServers': [
-                    { url: 'stun:stun.l.google.com:19302' },
-                    { url: 'stun:stun1.l.google.com:19302' },
-                    { url: 'stun:stun2.l.google.com:19302' }
-                ]
-            }
+            config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]}
         });
 
-        peer.on('open', (id) => {
-            statusText.innerText = isMobile ? "Připraveno. Klikni na 'PŘIPOJIT SE'." : "Vysílač připraven.";
-            if(isMobile) setTimeout(autoConnect, 1000);
+        peer.on('open', () => {
+            status.innerText = isMobile ? "Hledám vysílání..." : "Vysílač připraven.";
+            if(isMobile) connect();
         });
 
-        // PRO PC
         async function startStreaming() {
             try {
-                const stream = await navigator.mediaDevices.getDisplayMedia({
-                    video: { width: 1920, height: 1080, frameRate: 60 },
-                    audio: true
-                });
-                videoElement.srcObject = stream;
-                statusText.innerText = "VYSIÍLÁŠ!";
-                
-                peer.on('call', call => {
-                    statusText.innerText = "Divák připojen!";
-                    call.answer(stream);
-                });
-            } catch (err) { statusText.innerText = "Chyba: " + err.message; }
+                const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 60 }, audio: true });
+                video.srcObject = stream;
+                document.getElementById('controlsUI').style.opacity = "0.2";
+                status.innerText = "VYSIÍLÁŠ!";
+                peer.on('call', call => call.answer(stream));
+            } catch (e) { status.innerText = "Chyba: " + e.message; }
         }
 
-        // PRO IPAD/MOBIL
-        function autoConnect() {
-            statusText.innerText = "Volám vysílač...";
+        function connect() {
             const call = peer.call(ID_VYSILATEL, null);
-            
-            call.on('stream', remoteStream => {
-                statusText.innerText = "STREAM BĚŽÍ! Klepni na video.";
-                videoElement.srcObject = remoteStream;
-                videoElement.muted = false;
-                videoElement.play();
+            call.on('stream', s => {
+                video.srcObject = s;
+                status.innerText = "STREAM NALEZEN!";
+                document.getElementById('unlockBtn').style.display = "block";
             });
-
-            call.on('error', (e) => { statusText.innerText = "Chyba: " + e; });
+            setTimeout(() => { if(!video.srcObject) connect(); }, 4000);
         }
 
-        peer.on('error', err => {
-            if(err.type === 'peer-navigation-failed') statusText.innerText = "Chyba sítě. Zkus data.";
-            console.error(err);
-        });
+        function unlockVideo() {
+            video.muted = false;
+            video.play();
+            document.getElementById('controlsUI').style.display = "none";
+        }
     </script>
 </body>
 </html>
