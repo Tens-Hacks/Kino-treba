@@ -3,111 +3,124 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kino V4 - Krátké ID</title>
+    <title>🎬 Naše Soukromé Kino</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; background: #0f0f0f; color: white; text-align: center; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
-        video { width: 95%; max-width: 1100px; border-radius: 12px; background: black; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 20px; }
-        .card { background: #1a1a1a; padding: 25px; border-radius: 15px; width: 90%; max-width: 400px; border: 1px solid #333; }
-        button { background: #007aff; color: white; border: none; padding: 14px; font-size: 16px; font-weight: 600; cursor: pointer; border-radius: 8px; margin: 10px 0; width: 100%; }
-        input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333; background: #2a2a2a; color: white; box-sizing: border-box; text-align: center; margin-bottom: 10px; }
-        #status { color: #ffcc00; font-size: 0.9em; margin-top: 15px; font-weight: bold; }
-        .setup-box { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #333; }
+        body { font-family: -apple-system, sans-serif; background: #0b0b0b; color: white; text-align: center; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
+        video { width: 95%; max-width: 1100px; border-radius: 12px; background: black; box-shadow: 0 0 30px rgba(0,122,255,0.3); transition: 0.3s; }
+        .controls { background: #1a1a1a; padding: 25px; border-radius: 18px; margin-top: 20px; width: 90%; max-width: 400px; border: 1px solid #333; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        button { background: #007aff; color: white; border: none; padding: 16px; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 12px; width: 100%; margin: 10px 0; transition: 0.2s; }
+        button:active { transform: scale(0.98); opacity: 0.9; }
+        #status { color: #888; margin-top: 10px; font-size: 0.9em; min-height: 1.2em; }
+        .live-indicator { color: #ff3b30; font-weight: bold; display: none; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
     </style>
 </head>
 <body>
 
+    <div id="liveLabel" class="live-indicator">● LIVE (Vysíláš)</div>
     <video id="remoteVideo" autoplay playsinline controls muted></video>
     
-    <div class="card">
-        <h2 style="margin:0 0 20px 0">🎬 Zkouška prdů</h2>
-        
-        <div class="setup-box">
-            <p style="color: #888; font-size: 0.8em; margin-bottom: 5px;">Zadej název tvého kina (např. kino123):</p>
-            <input type="text" id="custom-id" placeholder="Tvoje jméno nebo kód">
-            <button onclick="initPeer()" id="init-btn" style="background: #5856d6;">Aktivovat název kina</button>
+    <div class="controls">
+        <div id="hostControls">
+            <button onclick="startStreaming()" style="background: #28a745;">🚀 ZAPNOUT STREAM (Pro tebe)</button>
         </div>
-
-        <button onclick="startStreaming()" id="start-btn" style="background: #28a745; display:none;">1. SDÍLET OBRAZOVKU (PC)</button>
-        
-        <div id="join-section" style="display:none;">
-            <p style="color: #888; font-size: 0.8em; margin: 20px 0 5px 0;">Partner zadá tvůj název a klikne:</p>
-            <button onclick="connectToPeer()">2. PŘIPOJIT SE (iPad/Mobil)</button>
-        </div>
-        
-        <div id="status" class="status">Status: Nejdřív aktivuj název.</div>
+        <div id="status">Načítám systém...</div>
+        <p style="font-size: 0.8em; color: #555; margin-top: 15px;">Přítelkyni stačí tuhle stránku jen otevřít.</p>
     </div>
 
     <script>
+        // TVÉ FIXNÍ ID
+        const MOJE_STALE_ID = 'tens-hacker'; 
+
         const videoElement = document.getElementById('remoteVideo');
         const statusText = document.getElementById('status');
-        let peer;
+        const liveLabel = document.getElementById('liveLabel');
+        
+        // Inicializace PeerJS
+        const peer = new Peer(MOJE_STALE_ID, {
+            config: {'iceServers': [
+                { url: 'stun:stun.l.google.com:19302' },
+                { url: 'stun:stun1.l.google.com:19302' }
+            ]}
+        });
 
-        // Funkce pro vytvoření spojení s tvým vlastním ID
-        function initPeer() {
-            const customId = document.getElementById('custom-id').value.trim();
-            if (!customId) return alert("Zadej nějaký název!");
+        peer.on('open', (id) => {
+            statusText.innerText = "Kino připraveno.";
+            // Automatický pokus o připojení (pro diváka)
+            setTimeout(autoConnect, 1500);
+        });
 
-            // Vytvoříme Peer s tvým názvem
-            peer = new Peer(customId, {
-                config: {'iceServers': [
-                    { url: 'stun:stun.l.google.com:19302' },
-                    { url: 'stun:stun1.l.google.com:19302' }
-                ]}
-            });
-
-            peer.on('open', (id) => {
-                statusText.innerText = "Kino '" + id + "' je připraveno!";
-                document.getElementById('init-btn').style.background = "#333";
-                document.getElementById('init-btn').innerText = "Název aktivní: " + id;
-                document.getElementById('start-btn').style.display = "block";
-                document.getElementById('join-section').style.display = "block";
-            });
-
-            peer.on('error', (err) => {
-                if (err.type === 'unavailable-id') {
-                    alert("Tenhle název už někdo používá, zkus jiný!");
-                } else {
-                    statusText.innerText = "Chyba: " + err.type;
-                }
-            });
-        }
-
-        // HOST (PC)
+        // 1. FUNKCE PRO TEBE (HOSTITEL NA PC)
         async function startStreaming() {
             try {
                 const stream = await navigator.mediaDevices.getDisplayMedia({
-                    video: { width: 1920, height: 1080, frameRate: 60 },
-                    audio: true
+                    video: { 
+                        width: { ideal: 1920 }, 
+                        height: { ideal: 1080 }, 
+                        frameRate: { ideal: 60 } 
+                    },
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false
+                    }
                 });
+                
                 videoElement.srcObject = stream;
-                videoElement.muted = true;
-                statusText.innerText = "VYSIÍLÁŠ! Partner se může připojit.";
+                videoElement.muted = true; // Aby ti to na PC nedělalo ozvěnu
+                liveLabel.style.display = "block";
+                statusText.innerText = "VYSIÍLÁŠ! Přítelkyně tě uvidí automaticky.";
 
+                // Když se ona (nebo kdokoliv) připojí
                 peer.on('call', call => {
-                    statusText.innerText = "Partner se připojil!";
+                    statusText.innerText = "Partner se právě připojil!";
                     call.answer(stream);
                 });
+
+                // Detekce vypnutí streamu (tlačítko "Stop sharing" v prohlížeči)
+                stream.getVideoTracks()[0].onended = () => {
+                    liveLabel.style.display = "none";
+                    statusText.innerText = "Stream ukončen.";
+                };
+
             } catch (err) {
                 statusText.innerText = "Chyba: " + err.message;
             }
         }
 
-        // DIVÁK (iPhone/iPad)
-        function connectToPeer() {
-            const remoteId = document.getElementById('custom-id').value.trim();
-            if(!remoteId) return alert("Zadej název kina partnera!");
+        // 2. FUNKCE PRO PŘÍTELKYNI (DIVÁK NA IPADU)
+        function autoConnect() {
+            // Pokud už vysílám já sám, nebudu se připojovat k sobě
+            if (videoElement.srcObject) return;
+
+            statusText.innerText = "Hledám aktivní kino...";
             
-            statusText.innerText = "Hledám kino: " + remoteId;
-            const call = peer.call(remoteId, null);
+            // Zkusíme zavolat na tvoje ID
+            const call = peer.call(MOJE_STALE_ID, null); 
             
             call.on('stream', remoteStream => {
-                statusText.innerText = "STREAM PŘIJAT! Klepni na video.";
+                statusText.innerText = "Sleduješ stream! (Klepni pro zvuk)";
                 videoElement.srcObject = remoteStream;
-                videoElement.muted = false;
-                videoElement.play();
+                videoElement.muted = false; // Zapne zvuk na iPadu
+                videoElement.play().catch(() => {
+                    statusText.innerText = "Klepni na video pro spuštění zvuku!";
+                });
             });
+
+            // Pokud se nikdo neozve (vysílání neběží), zkusí to znovu za 5 vteřin
+            setTimeout(() => {
+                if (!videoElement.srcObject) {
+                    autoConnect();
+                }
+            }, 5000);
         }
+
+        // Ošetření chyb (pokud je jméno obsazené)
+        peer.on('error', (err) => {
+            if (err.type === 'unavailable-id') {
+                statusText.innerText = "ID 'tens-hacker' je už v provozu (vysíláš).";
+            }
+        });
     </script>
 </body>
 </html>
