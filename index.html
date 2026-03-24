@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎬 Moje Kino V10</title>
+    <title>🎬 Kino V11 - NAT Bypass</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
     <style>
         body { font-family: sans-serif; background: #0b0b0b; color: white; text-align: center; margin: 0; padding: 20px; }
-        video { width: 100%; max-width: 900px; background: #000; border-radius: 10px; margin-bottom: 20px; border: 1px solid #333; }
-        .box { background: #1a1a1a; padding: 25px; border-radius: 20px; border: 1px solid #444; max-width: 400px; margin: 0 auto; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
+        video { width: 100%; max-width: 900px; background: #000; border-radius: 12px; margin-bottom: 20px; border: 1px solid #333; }
+        .box { background: #1a1a1a; padding: 25px; border-radius: 20px; border: 1px solid #444; max-width: 400px; margin: 0 auto; }
         button { background: #007aff; color: white; border: none; padding: 16px; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 12px; width: 100%; margin: 10px 0; }
-        input { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid #444; background: #222; color: white; box-sizing: border-box; text-align: center; font-size: 1.1em; }
-        #status { color: #00ff00; font-size: 0.9em; margin: 15px 0; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; border: 1px dashed #555; }
-        #my-id { background: #000; padding: 10px; border-radius: 8px; color: #007aff; font-family: monospace; font-size: 1.2em; word-break: break-all; }
+        input { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid #444; background: #222; color: white; box-sizing: border-box; text-align: center; }
+        #status { color: #00ff00; font-size: 0.9em; margin: 15px 0; padding: 10px; border: 1px dashed #555; }
+        #my-id { background: #000; padding: 10px; border-radius: 8px; color: #007aff; font-family: monospace; font-size: 1.1em; word-break: break-all; }
     </style>
 </head>
 <body>
@@ -20,45 +20,38 @@
     <video id="video" autoplay playsinline controls muted></video>
     
     <div class="box">
-        <div id="status">🔄 Navazuji spojení se serverem...</div>
+        <div id="status">Iniciace...</div>
+        <p style="font-size: 0.8em; color: #aaa;">ID TOHOTO ZAŘÍZENÍ:</p>
+        <div id="my-id">Čekám...</div>
         
-        <div id="host-area">
-            <p style="font-size: 0.8em; color: #aaa;">ID TOHOTO POČÍTAČE:</p>
-            <div id="my-id">Čekám na ID...</div>
-            <button onclick="startStream()" style="background: #28a745; margin-top: 15px;">🚀 START STREAM (PC)</button>
-        </div>
-
-        <div style="margin: 25px 0; border-top: 1px solid #444;"></div>
-
-        <div id="client-area">
-            <input type="text" id="peer-id" placeholder="Vlož ID z druhého zařízení">
-            <button onclick="joinStream()">📱 PŘIPOJIT SE (Mobil/iPad)</button>
-        </div>
+        <button onclick="startStream()" style="background: #28a745; margin-top: 15px;">🚀 START STREAM (PC)</button>
+        <div style="margin: 20px 0; border-top: 1px solid #444;"></div>
+        <input type="text" id="peer-id" placeholder="Vlož ID partnera">
+        <button onclick="joinStream()">📱 PŘIPOJIT SE (Mobil)</button>
     </div>
 
     <script>
         const status = document.getElementById('status');
         const myIdDisplay = document.getElementById('my-id');
         const video = document.getElementById('video');
-        
-        // Inicializace s více STUN servery pro průchod přes firewally
+
+        // TURN server pomůže protlačit video přes tvůj router
         const peer = new Peer({
             config: {'iceServers': [
                 { url: 'stun:stun.l.google.com:19302' },
                 { url: 'stun:stun1.l.google.com:19302' },
-                { url: 'stun:stun2.l.google.com:19302' }
+                // Veřejný testovací TURN server (může být pomalejší, ale projde všude)
+                { 
+                    urls: 'turn:openrelay.metered.ca:443',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                }
             ]}
         });
 
         peer.on('open', (id) => {
-            status.innerText = "✅ SERVER PŘIPOJEN - MŮŽEŠ VYSÍLAT";
+            status.innerText = "✅ PŘIPOJENO K SERVERU";
             myIdDisplay.innerText = id;
-        });
-
-        peer.on('error', (err) => {
-            status.style.color = "#ff4444";
-            status.innerText = "❌ CHYBA SÍTĚ: " + err.type;
-            if(err.type === 'network') status.innerText += " (Zkus vypnout AdBlock nebo změnit Wi-Fi)";
         });
 
         async function startStream() {
@@ -68,29 +61,23 @@
                     audio: true
                 });
                 video.srcObject = stream;
-                status.innerText = "📡 VYSÍLÁŠ! Opiš ID do mobilu.";
-                
-                peer.on('call', (call) => {
+                status.innerText = "📡 VYSÍLÁŠ! Opiš ID.";
+                peer.on('call', call => {
                     status.innerText = "👤 PARTNER PŘIPOJEN!";
                     call.answer(stream);
                 });
-            } catch (e) {
-                status.innerText = "⚠️ CHYBA: " + e.message;
-            }
+            } catch (e) { status.innerText = "⚠️ CHYBA: " + e.message; }
         }
 
         function joinStream() {
             const id = document.getElementById('peer-id').value.trim();
-            if(!id) return alert("Vlož ID!");
-            
-            status.innerText = "📞 Volám partnera...";
+            status.innerText = "📞 Pokus o spojení přes router...";
             const call = peer.call(id, null);
-            
             call.on('stream', (s) => {
-                status.innerText = "🎬 OBRAZ PŘIJAT! (Klepni na video)";
+                status.innerText = "🎬 OBRAZ PŘIJAT!";
                 video.srcObject = s;
                 video.muted = false;
-                video.play().catch(e => console.log("Safari auto-play block"));
+                video.play();
             });
         }
     </script>
