@@ -3,31 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎬 Moje Kino V12 - Fixed Network</title>
+    <title>🎬 Moje Kino V13 - Force Connect</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; background: #0b0b0b; color: white; text-align: center; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
-        video { width: 100%; max-width: 900px; background: #000; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 0 30px rgba(0,122,255,0.3); border: 1px solid #333; }
-        .box { background: #1a1a1a; padding: 25px; border-radius: 20px; border: 1px solid #444; max-width: 400px; width: 90%; }
+        body { font-family: sans-serif; background: #000; color: white; text-align: center; margin: 0; padding: 10px; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
+        #video-container { width: 100%; max-width: 900px; position: relative; background: #111; border-radius: 15px; overflow: hidden; margin-bottom: 20px; aspect-ratio: 16/9; border: 2px solid #333; }
+        video { width: 100%; height: 100%; object-fit: contain; }
+        .box { background: #1a1a1a; padding: 20px; border-radius: 20px; width: 90%; max-width: 400px; border: 1px solid #444; }
         button { background: #007aff; color: white; border: none; padding: 16px; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 12px; width: 100%; margin: 10px 0; }
-        input { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid #444; background: #222; color: white; box-sizing: border-box; text-align: center; margin-bottom: 10px; }
-        #status { color: #00ff00; font-size: 0.9em; margin: 15px 0; padding: 10px; border: 1px dashed #555; border-radius: 8px; }
-        #my-id { background: #000; padding: 10px; border-radius: 8px; color: #007aff; font-family: monospace; font-size: 1.1em; word-break: break-all; margin: 10px 0; }
+        input { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid #444; background: #222; color: white; box-sizing: border-box; text-align: center; }
+        #status { color: #ffcc00; font-size: 0.85em; margin: 10px 0; min-height: 40px; }
+        #my-id { color: #007aff; font-weight: bold; background: #000; padding: 8px; border-radius: 5px; display: inline-block; margin-top: 5px; }
     </style>
 </head>
 <body>
 
-    <video id="video" autoplay playsinline controls muted></video>
+    <div id="video-container">
+        <video id="video" autoplay playsinline controls muted></video>
+    </div>
     
     <div class="box">
-        <div id="status">🔄 Inicializace sítě...</div>
-        <div id="my-id">Čekám na přidělení linky...</div>
+        <div id="status">🔄 Připojování k síti...</div>
+        <div style="font-size: 0.8em; color: #888;">ID PRO PARTNERA: <br><span id="my-id">...</span></div>
         
-        <button onclick="startStream()" style="background: #28a745;">🚀 SPUSTIT VYSÍLÁNÍ (PC)</button>
-        <div style="margin: 20px 0; border-top: 1px solid #444;"></div>
-        
-        <input type="text" id="peer-id" placeholder="Vlož kód z počítače">
-        <button onclick="joinStream()">📱 PŘIPOJIT SE (iPad/Mobil)</button>
+        <button onclick="startStream()" style="background: #28a745;">🚀 START VYSÍLÁNÍ (PC)</button>
+        <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0;">
+        <input type="text" id="peer-id" placeholder="Vlož kód z PC">
+        <button onclick="joinStream()" style="background: #5856d6;">📱 PŘIPOJIT SE (iPad)</button>
     </div>
 
     <script>
@@ -35,14 +37,10 @@
         const myIdDisplay = document.getElementById('my-id');
         const video = document.getElementById('video');
 
-        // KONFIGURACE SÍTĚ (Klíč k úspěchu)
-        // Používáme STUN pro přímé spojení a TURN pro obejití routeru
         const peer = new Peer({
             config: {'iceServers': [
                 { url: 'stun:stun.l.google.com:19302' },
                 { url: 'stun:stun1.l.google.com:19302' },
-                { url: 'stun:stun2.l.google.com:19302' },
-                // Veřejný TURN server pro "protlačení" dat skrz routery
                 { 
                     urls: 'turn:openrelay.metered.ca:443',
                     username: 'openrelayproject',
@@ -52,56 +50,55 @@
         });
 
         peer.on('open', (id) => {
-            status.innerText = "✅ SÍŤ PŘIPRAVENA";
+            status.innerText = "✅ SÍŤ PŘIPRAVENA. \n Pokud jsi na PC, klikni na START.";
             myIdDisplay.innerText = id;
         });
 
-        peer.on('error', (err) => {
-            status.innerText = "❌ CHYBA: " + err.type;
-            console.error(err);
-        });
-
-        // FUNKCE PRO TEBE (PC)
+        // PC ČÁST
         async function startStream() {
             try {
                 const stream = await navigator.mediaDevices.getDisplayMedia({
-                    video: { width: 1920, height: 1080, frameRate: 60 },
+                    video: { width: {ideal: 1920}, height: {ideal: 1080}, frameRate: 60 },
                     audio: true
                 });
                 video.srcObject = stream;
-                status.innerText = "📡 VYSÍLÁŠ! Opiš kód do iPadu.";
+                status.innerText = "📡 VYSÍLÁŠ! \n Teď vlož kód do iPadu.";
                 
                 peer.on('call', call => {
-                    status.innerText = "👤 PARTNER PŘIPOJEN!";
+                    status.innerText = "👤 PARTNER VOLÁ! Připojuji...";
                     call.answer(stream);
+                    call.on('stream', () => {}); // Nutné pro některé prohlížeče
                 });
             } catch (e) {
                 status.innerText = "⚠️ CHYBA: " + e.message;
             }
         }
 
-        // FUNKCE PRO PŘÍTELKYNI (iPad)
+        // IPAD ČÁST
         function joinStream() {
             const id = document.getElementById('peer-id').value.trim();
-            if(!id) return alert("Musíš vložit kód!");
+            if(!id) return alert("Chybí kód!");
             
-            status.innerText = "📞 Navazuji spojení skrz router...";
-            const call = peer.call(id, null);
+            status.innerText = "📞 Volám partnera... \n (Pokud se nic neděje, zkontroluj Hotspot)";
+            
+            const call = peer.call(id, null, {
+                metadata: { "type": "video" }
+            });
             
             call.on('stream', (remoteStream) => {
-                status.innerText = "🎬 OBRAZ PŘIJAT! (Klepni na video)";
+                status.innerText = "🎬 OBRAZ PŘIJAT! \n Klepni na video pro zvuk.";
                 video.srcObject = remoteStream;
-                video.muted = false; // Zapne zvuk
-                video.play().catch(e => {
-                    status.innerText = "Klepni na obraz pro zvuk!";
-                });
+                video.muted = false;
+                video.play();
             });
 
-            // Pokud se spojení nepovede do 10s, zkusí to znovu
+            // Časová pojistka
             setTimeout(() => {
-                if(!video.srcObject) status.innerText = "⏳ Spojení trvá déle... vyčkej.";
-            }, 10000);
+                if(!video.srcObject) status.innerText = "❌ Spojení selhalo. \n Zkus na iPhonu vypnout Wi-Fi a jet přes data.";
+            }, 15000);
         }
+
+        peer.on('error', err => status.innerText = "❌ CHYBA: " + err.type);
     </script>
 </body>
 </html>
