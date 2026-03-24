@@ -3,68 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎬 Soukromé Kino V8</title>
+    <title>🎬 Moje Kino V9</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { font-family: sans-serif; background: #000; color: white; text-align: center; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
-        video { width: 100%; height: 100vh; background: #000; object-fit: contain; }
-        .ui { position: absolute; z-index: 10; background: rgba(20,20,20,0.8); padding: 20px; border-radius: 15px; width: 300px; border: 1px solid #444; }
+        body { font-family: sans-serif; background: #0b0b0b; color: white; text-align: center; margin: 0; padding: 20px; }
+        video { width: 100%; max-width: 900px; background: #000; border-radius: 10px; margin-bottom: 20px; }
+        .box { background: #1a1a1a; padding: 20px; border-radius: 15px; border: 1px solid #333; max-width: 400px; margin: 0 auto; }
         button { background: #007aff; color: white; border: none; padding: 15px; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 10px; width: 100%; margin: 10px 0; }
-        #status { color: #ffcc00; font-size: 0.9em; margin-bottom: 10px; }
+        input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #333; background: #2a2a2a; color: white; box-sizing: border-box; text-align: center; }
+        #status { color: #ffcc00; font-size: 0.9em; margin: 15px 0; font-family: monospace; }
     </style>
 </head>
 <body>
 
-    <video id="remoteVideo" autoplay playsinline controls muted></video>
+    <video id="video" autoplay playsinline controls muted></video>
     
-    <div class="ui" id="controlsUI">
-        <div id="status">Připojování...</div>
-        <button id="hostBtn" onclick="startStreaming()" style="background: #28a745;">🚀 START STREAM (PC)</button>
-        <button id="unlockBtn" onclick="unlockVideo()" style="display:none; background: #ff9500;">🔊 ODBLOKOVAT VIDEO/ZVUK</button>
-        <button onclick="location.reload()">🔄 REFRESH</button>
+    <div class="box">
+        <div id="status">Inicilizace...</div>
+        
+        <div id="host-area">
+            <p style="font-size: 0.8em; color: #888;">TVOJE ID (opiš do mobilu):</p>
+            <h2 id="my-id" style="color: #007aff; margin: 5px 0;">---</h2>
+            <button onclick="startStream()" style="background: #28a745;">🚀 START STREAM (PC)</button>
+        </div>
+
+        <div style="margin: 20px 0; border-top: 1px solid #333;"></div>
+
+        <div id="client-area">
+            <input type="text" id="peer-id" placeholder="Vlož ID z počítače">
+            <button onclick="joinStream()">📱 PŘIPOJIT SE (Mobil)</button>
+        </div>
     </div>
 
     <script>
-        const video = document.getElementById('remoteVideo');
         const status = document.getElementById('status');
-        const ID_VYSILATEL = 'tens-hacker-kino';
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-        if(isMobile) document.getElementById('hostBtn').style.display = 'none';
-
-        const peer = new Peer(isMobile ? '' : ID_VYSILATEL, {
+        const myIdDisplay = document.getElementById('my-id');
+        const video = document.getElementById('video');
+        
+        // Vytvoření spojení (náhodné ID je jistota)
+        const peer = new Peer({
             config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]}
         });
 
-        peer.on('open', () => {
-            status.innerText = isMobile ? "Hledám vysílání..." : "Vysílač připraven.";
-            if(isMobile) connect();
+        peer.on('open', (id) => {
+            status.innerText = "PŘIPOJENO K SERVERU ✅";
+            myIdDisplay.innerText = id;
         });
 
-        async function startStreaming() {
+        peer.on('error', (err) => {
+            status.innerText = "CHYBA: " + err.type;
+            console.error(err);
+        });
+
+        // PRO TEBE NA PC
+        async function startStream() {
             try {
-                const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 60 }, audio: true });
+                const stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { frameRate: 60 },
+                    audio: true
+                });
                 video.srcObject = stream;
-                document.getElementById('controlsUI').style.opacity = "0.2";
-                status.innerText = "VYSIÍLÁŠ!";
-                peer.on('call', call => call.answer(stream));
-            } catch (e) { status.innerText = "Chyba: " + e.message; }
+                status.innerText = "VYSIÍLÁŠ! Opiš ID do mobilu.";
+                
+                peer.on('call', (call) => {
+                    status.innerText = "DIVÁK PŘIPOJEN! ⚡";
+                    call.answer(stream);
+                });
+            } catch (e) {
+                status.innerText = "Chyba vysílání: " + e.message;
+            }
         }
 
-        function connect() {
-            const call = peer.call(ID_VYSILATEL, null);
-            call.on('stream', s => {
+        // PRO PŘÍTELKYNI NA MOBILU
+        function joinStream() {
+            const id = document.getElementById('peer-id').value;
+            if(!id) return alert("Musíš vložit ID!");
+            
+            status.innerText = "Volám PC...";
+            const call = peer.call(id, null);
+            
+            call.on('stream', (s) => {
+                status.innerText = "PŘÍJEM OBRAZU! (Klepni na video)";
                 video.srcObject = s;
-                status.innerText = "STREAM NALEZEN!";
-                document.getElementById('unlockBtn').style.display = "block";
+                video.muted = false;
+                video.play();
             });
-            setTimeout(() => { if(!video.srcObject) connect(); }, 4000);
-        }
-
-        function unlockVideo() {
-            video.muted = false;
-            video.play();
-            document.getElementById('controlsUI').style.display = "none";
         }
     </script>
 </body>
